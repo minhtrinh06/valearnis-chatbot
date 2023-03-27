@@ -46,7 +46,7 @@ if __name__ == "__main__":
     while user_input != "quit":
         user_input = input("")
         user_input = pre_process_text(user_input)
-        responses = openai.Completion.create(model="text-davinci-003", prompt=user_input, temperature=1, max_tokens=20, n=3)
+        responses = openai.Completion.create(model="text-davinci-003", prompt=user_input, temperature=1, max_tokens=50, n=3)
         print(responses)
 
     # # Continuously ask for user input
