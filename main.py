@@ -2,17 +2,13 @@ import openai
 from api_key import API_KEY
 import re
 import nltk
-from nltk.corpus import stopwords
-nltk.download('punkt')
-nltk.download('wordnet')
-nltk.download('stopwords')
+from sklearn.tree import DecisionTreeRegressor 
+import pandas as pd
+import numpy as np
+nltk.download('punkt', quiet=True)
+nltk.download('wordnet', quiet=True)
 
 openai.api_key = API_KEY
-
-# Two main TODOs:
-# 1. Pre-process the input text to make it more suitable for GPT-3 using NLP
-# 2. Choose the best answer from the GPT-3 output using ML
-
 
 #############################
 #### PRE-PROCESSING #########
@@ -37,29 +33,50 @@ def pre_process_text(txt):
     txt = clean_text(txt.lower())
     txt = tokenize_text(txt)
     txt = lemmatize_text(txt)
+    txt = txt + ["?"]
     return " ".join(txt)
+
+
+#############################
+#### POST-PROCESSING ########
+#############################
+
+def similar_words_perc(str1, str2):
+    str1 = set(str1.split())
+    str2 = set(str2.split())
+    return len(str1 & str2) / len(str1 | str2)
+
+def clean_response(str):
+    if (str[0] == " "):
+        str = str[1:]
+    str = str[0].upper() + str[1:]
+    return str
 
 if __name__ == "__main__":
 
-    # Ask for user input until the user types "quit"
+    # Load the data for the decision tree
+    data = np.array(pd.read_csv("virtual_assistant_responses.csv", sep=','))
+    X = data[:, 0:3].astype(float)
+    Y = data[:, 3].astype(float)
+    
+    regressor = DecisionTreeRegressor(random_state = 0) 
+    regressor.fit(X, Y)
+
+    # Start the conversation
+    print("Welcome to the virtual assistant! Ask me a question or type 'quit' to exit.")
     user_input = ""
     while user_input != "quit":
         user_input = input("")
         user_input = pre_process_text(user_input)
-        responses = openai.Completion.create(model="text-davinci-003", prompt=user_input, temperature=1, max_tokens=50, n=3)
-        print(responses)
+        prompt_wc = len(user_input.split())
+        responses = openai.Completion.create(model="curie:ft-personal-2023-03-29-11-58-44", prompt=user_input, temperature=0.05, max_tokens=50, n=5, stop=["\n"])
+        responses_txt = [r["text"] for r in responses["choices"]]
 
-    # # Continuously ask for user input
-    # while True:
-    #     # Get user input
-    #     user_input = input("You: ")
+        relevance_scores = []
+        for r in responses_txt:
+            response_wc = len(r.split())
+            sim_words = similar_words_perc(user_input, r)
+            relevance_scores.append(regressor.predict([[prompt_wc, response_wc, sim_words]]))
 
-    #     # Pre-process user input
-    #     user_input = pre_process_text(user_input)
-            
-    #     # Create prompt for GPT-3
-    #     prompt = f"Human: {user_input}"
-
-    #     # Ask GPT-3 for an answer
-    #     response = openai.Completion.create()
-
+        best_response = responses_txt[np.argmax(relevance_scores)]
+        print(clean_response(best_response))
