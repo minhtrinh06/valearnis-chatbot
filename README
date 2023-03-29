@@ -1,0 +1,12 @@
+To install the required libraries, run the following command:
+pip install -r requirements.txt
+
+Replace the variable in api_key.py with your own API key.
+API_KEY = "YOUR_API_KEY"
+
+To run the application, run the following command:
+python main.py 
+
+or
+
+python3 main.py
